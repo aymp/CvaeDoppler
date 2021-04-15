@@ -18,7 +18,7 @@ import seaborn as sns
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 import subprocess
 import csv
-#from datetime import datetime
+from datetime import datetime
 #sns.set(style='darkgrid')
 
 import torch
@@ -832,16 +832,16 @@ def main(args):
     ltest_qy_x = np.array(ltest_qy_x)
 
     test_accuracy = accuracy_score(ltest_pred,ltest_qy_x)
-    with open(DIR_OUT+str(test_accuracy), mode='w') as _f:
-        pass
     if not os.path.isfile(DIR_OUT+'accuracy_score.csv'):
         with open(DIR_OUT+'accuracy_score.csv',mode='w',newline='') as f:
+            dt_now = datetime.now()
             writer = csv.writer(f)
-            writer.writerow([test_accuracy])
+            writer.writerow([str(test_accuracy), dt_now.strftime('%Y-%m-%d %H:%M:%S')])
     else:
         with open(DIR_OUT+'accuracy_score.csv',mode='a',newline='') as f:
+            dt_now = datetime.now()
             writer = csv.writer(f)
-            writer.writerow([test_accuracy])           
+            writer.writerow([str(test_accuracy), dt_now.strftime('%Y-%m-%d %H:%M:%S')])
 
 # ----- 2021.2.5 p(z|y)の分布をプロット
     fig = plt.figure(num=None, figsize=(4, 3), dpi=300, facecolor='w', edgecolor='k')
