@@ -29,13 +29,13 @@ from torch.utils.data import DataLoader
 
 import get_info_from_filelist
 import model_pool2_125hz
-import model_pool2_500hz
-import model_pool4_125hz
-import model_pool4_500hz
-import model_yule_pool2_125hz
-import model_yule_pool4_125hz
-import model_yule_pool2_500hz
-import model_yule_pool4_500hz
+#import model_pool2_500hz
+#import model_pool4_125hz
+#import model_pool4_500hz
+#import model_yule_pool2_125hz
+#import model_yule_pool4_125hz
+#import model_yule_pool2_500hz
+#import model_yule_pool4_500hz
 
 plt.rcParams['font.size'] = 8
 plt.rcParams['font.family']= 'sans-serif'
@@ -392,8 +392,8 @@ def train(K,pz_y,px_z,qy_x,qz_xy,train_loader,optimizer,ALPHA,BETA,device,epoch,
 
     z_xy_array = np.array(z_xy_list)
     z_y_array = np.array(z_y_list)
-    z_plot(z_xy_array,t_array,'qz_xy',epoch,DIR_OUT)
-    z_plot(z_y_array,t_array,'pz_y',epoch,DIR_OUT)
+    #z_plot(z_xy_array,t_array,'qz_xy',epoch,DIR_OUT)
+    #z_plot(z_y_array,t_array,'pz_y',epoch,DIR_OUT)
 
     return avg_loss, avg_recon_loss, avg_kl_gauss, avg_Xent, avg_precision, avg_recall, avg_f1
 
@@ -1018,7 +1018,7 @@ def main(args):
             plt.legend()
     fig3.tight_layout()
     fig3.savefig(DIR_OUT+"VAEclustering_2d_test_sma"+str(SMA_NUM)+".png")
-    plt.show()
+    #plt.show()
 
     output_fp = open(DIR_OUT+"result_train.csv", 'w')
     for label_i, latent_i, datatime_i, label_pred in zip(ltrain_pred, ztrain_pred, train_datatime_idx, ltrain_qy_x):
@@ -1047,17 +1047,16 @@ def main(args):
     output_fp.close()
     print(DIR_OUT)
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--distance", default=None)
-    parser.add_argument("--y_dim", type=int, default=20)
+    parser.add_argument("--distance", default='75cm')
+    parser.add_argument("--y_dim", type=int, default=23)
     parser.add_argument("--z_dim", type=int, default=2)
-    parser.add_argument("--epoch_num", type=int, default=100)
+    parser.add_argument("--epoch_num", type=int, default=50)
     parser.add_argument("--tau", type=float, default=0.5)#温度
     parser.add_argument("--beta", type=float, default=10)
-    parser.add_argument("--alpha", type=float, default=1000)
+    parser.add_argument("--alpha", type=float, default=2000)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=1e-5)
@@ -1066,19 +1065,19 @@ if __name__ == '__main__':
     parser.add_argument("--fs", type=int, default=125)
     parser.add_argument("--pool", type=int, default=2)
 
-    parser.add_argument("--freqs_start", type=int, default=None)
-    parser.add_argument("--freqs_end", type=int, default=None)
+    parser.add_argument("--freqs_start", type=int, default=3) #None
+    parser.add_argument("--freqs_end", type=int, default=51) #None
 
     parser.add_argument("--disable_supervised", action='store_false')#デフォTrue
     parser.add_argument("--plot_recon", action='store_true')#デフォFalse
     parser.add_argument("--yule", action='store_true')
 
-    parser.add_argument("--wavelet_height", type=int, default=64)
+    parser.add_argument("--wavelet_height", type=int, default=48) #切り取らないなら64
     parser.add_argument("--wavelet_width", type=int, default=74)
 
     parser.add_argument("--pardir", default='6_ClusteringResults/')
     parser.add_argument("--filelist_dir", default='0_FileList/')
-    parser.add_argument("--flistname_in", default='4B_Sma5Wavelet.txt')
+    parser.add_argument("--flistname_in", default='4C_LogSma5Wavelet_125Hz.txt')
 
     args = parser.parse_args()
     main(args)
