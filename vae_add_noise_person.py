@@ -190,7 +190,7 @@ def z_plot(z,t,fig_name,epoch,DIR_OUT,Y_DIM=20):
     fig.savefig(DIR_OUT+'figs/'+fig_name+'_'+str(epoch)+'.svg')
     plt.close()
 
-def createMydataset2D(subject_num, filelist, sma_num, wavelet_height, wavelet_width, transform, distance=None, freqs_start=None, freqs_end=None):
+def createMydataset2D_addNoise(subject_num, test_person_num, filelist, sma_num, wavelet_height, wavelet_width, transform, distance=None, freqs_start=None, freqs_end=None):
     """ピーク前後で分割した時間軸波形をウェーブレット変換したデータを用いてデータセット作成"""
 
     LABELs = {}
@@ -264,6 +264,21 @@ def createMydataset2D(subject_num, filelist, sma_num, wavelet_height, wavelet_wi
                 datatime_idx = list(range(count_test,count_test+numoftest))
                 test_datatime_idx.extend(datatime_idx)
                 count_test += numoftest
+
+            if is_with_breathing and subject_num <= LABELs[data_subject] < subject_num+test_person_num:
+                data = np.load(fname)
+                data_temp = data[numoftrain+sma_num-1:min_peaks+sma_num-1,freqs_start:freqs_end,:]
+                if freqs_start != None or freqs_end != None:
+                    for i in range(data_temp.shape[0]):
+                        data_temp[i] = min_max(data_temp[i])
+                test_datasetlist = np.append(test_datasetlist, data_temp)
+                label = [subject_num]*numoftest
+                test_label.extend(label)
+                #datatime_idx = list(range(numoftrain+sma_num-1,min_peaks+sma_num-1))
+                datatime_idx = list(range(count_test,count_test+numoftest))
+                test_datatime_idx.extend(datatime_idx)
+                count_test += numoftest
+
             """
             else:
             # ----- Create Test Dataset
@@ -292,6 +307,7 @@ def createMydataset2D(subject_num, filelist, sma_num, wavelet_height, wavelet_wi
                 count_train += numoftrain
 
             # ----- Create Test Dataset
+                
                 data_temp = data[numoftrain+sma_num-1:min_peaks+sma_num-1,freqs_start:freqs_end,:]
                 if freqs_start != None or freqs_end != None:
                     for i in range(data_temp.shape[0]):
@@ -303,6 +319,20 @@ def createMydataset2D(subject_num, filelist, sma_num, wavelet_height, wavelet_wi
                 datatime_idx = list(range(count_test, count_test+numoftest))
                 test_datatime_idx.extend(datatime_idx)
                 count_test += numoftest
+            
+            if is_with_breathing and data_distance == distance and subject_num<=LABELs[data_subject]<subject_num+test_person_num:
+                data = np.load(fname)
+                data_temp = data[numoftrain+sma_num-1:min_peaks+sma_num-1,freqs_start:freqs_end,:]
+                if freqs_start != None or freqs_end != None:
+                    for i in range(data_temp.shape[0]):
+                        data_temp[i] = min_max(data_temp[i])
+                test_datasetlist = np.append(test_datasetlist, data_temp)
+                label = [subject_num]*numoftest
+                test_label.extend(label)
+                datatime_idx = list(range(count_test,count_test+numoftest))
+                test_datatime_idx.extend(datatime_idx)
+                count_test += numoftest
+
             """
             elif data_distance == distance:
             # ----- Create Test Dataset
@@ -313,7 +343,21 @@ def createMydataset2D(subject_num, filelist, sma_num, wavelet_height, wavelet_wi
                 test_label.extend(label)
                 datatime_idx = list(range(min_peaks+sma_num-1, min_peaks+sma_num-1+npeaks))
                 test_datatime_idx.extend(datatime_idx)"""
+    
+    # 訓練データに「ノイズ」クラスを追加
+    
+    num_per_one = int(len(train_label)/subject_num)
+    noise_dataset = np.random.rand(num_per_one,wavelet_height,wavelet_width)
+    for i in range(noise_dataset.shape[0]):
+        noise_dataset[i] = min_max(noise_dataset[i])
+    label = [subject_num]*num_per_one
+    datatime_idx = [0]*num_per_one
+    
+    train_datasetlist = np.append(train_datasetlist, noise_dataset)
+    train_label.extend(label)
+    train_datatime_idx.extend(datatime_idx)
 
+    # データ成型
     train_datasetlist = np.reshape(train_datasetlist, (-1, wavelet_height, wavelet_width, 1))
     test_datasetlist = np.reshape(test_datasetlist, (-1, wavelet_height, wavelet_width, 1))
     print(f"train_datasetlist.shape : {train_datasetlist.shape}")
@@ -323,6 +367,7 @@ def createMydataset2D(subject_num, filelist, sma_num, wavelet_height, wavelet_wi
     test_label = np.array(test_label)
     print(f"train_label.shape : {train_label.shape}")
     print(f"test_label.shape : {test_label.shape}")
+    print(f"train_label : {train_label}")
 
     train_datatime_idx = np.array(train_datatime_idx)
     test_datatime_idx = np.array(test_datatime_idx)
@@ -398,6 +443,7 @@ def train(K,pz_y,px_z,qy_x,qz_xy,train_loader,optimizer,ALPHA,BETA,device,epoch,
     return avg_loss, avg_recon_loss, avg_kl_gauss, avg_Xent, avg_precision, avg_recall, avg_f1
 
 def test(K,pz_y,px_z,qy_x,qz_xy,dataloader,ALPHA,BETA,device):
+    #K=K+1
     pz_y.eval()
     px_z.eval()
     qy_x.eval()
@@ -465,8 +511,8 @@ def do_train_and_test(K,pz_y,px_z,qy_x,qz_xy,train_loader,test_loader,optimizer,
     history['test_f1'] = []
 
     for epoch in tqdm(range(epoch_num)):
-        train_loss,train_recon_loss,train_kl_gauss,train_Xent,train_precision,train_recall,train_f1 = train(K,pz_y,px_z,qy_x,qz_xy,train_loader,optimizer,ALPHA,BETA,device,epoch,DIR_OUT)
-        test_loss,test_recon_loss,test_kl_gauss,test_Xent,test_precision,test_recall,test_f1 = test(K,pz_y,px_z,qy_x,qz_xy,test_loader,ALPHA,BETA,device)
+        train_loss,train_recon_loss,train_kl_gauss,train_Xent,train_precision,train_recall,train_f1 = train(K+1,pz_y,px_z,qy_x,qz_xy,train_loader,optimizer,ALPHA,BETA,device,epoch,DIR_OUT)
+        test_loss,test_recon_loss,test_kl_gauss,test_Xent,test_precision,test_recall,test_f1 = test(K+1,pz_y,px_z,qy_x,qz_xy,test_loader,ALPHA,BETA,device)
         history['train_loss'].append(train_loss)
         history['train_recon_loss'].append(train_recon_loss)
         history['train_kl_gauss'].append(train_kl_gauss)
@@ -511,6 +557,7 @@ def main(args):
     BATCH_SIZE = args.batch_size
     LR = args.lr # 学習率
     SMA_NUM = args.sma_num
+    TEST_PERSON_NUM = args.test_person_num
     WAVELET_HEIGHT = args.wavelet_height
     WAVELET_WIDTH = args.wavelet_width
     PLOT_RECON = args.plot_recon
@@ -555,12 +602,14 @@ def main(args):
 # ----- データセット作成
     print('ファイル読み込み...')
     transform = transforms.Compose([transforms.ToTensor()])
-    train_dataset, test_dataset = createMydataset2D(Y_DIM,FILELIST_IN_PATH, SMA_NUM, WAVELET_HEIGHT, WAVELET_WIDTH, transform, DISTANCE, FREQS_START, FREQS_END)
+    #train_dataset, _test_dataset = createMydataset2D(Y_DIM,FILELIST_IN_PATH, SMA_NUM, WAVELET_HEIGHT, WAVELET_WIDTH, transform, DISTANCE, FREQS_START, FREQS_END)
+    #noise_dataset = createNoiseDataset(34*9,WAVELET_HEIGHT,WAVELET_WIDTH,transform)
+    #train_dataset = MyDataset(np.concatenate([train_dataset.data,noise_dataset.data],0).astype(np.float32),
+    #                    np.concatenate([train_dataset.label,noise_dataset.label],0),
+    #                    np.concatenate([train_dataset.datatime_idx,noise_dataset.datatime_idx],0).astype(np.float32))
+    #_, test_dataset = createMydataset2D(5,FILELIST_IN_PATH, SMA_NUM, WAVELET_HEIGHT, WAVELET_WIDTH, transform, DISTANCE, FREQS_START, FREQS_END)
 
-    print(f"train_dataset.data.shape:{train_dataset.data.shape}")
-    print(f"train_dataset.label.shape:{train_dataset.label.shape}")
-    print(f"test_dataset.data.shape:{test_dataset.data.shape}")
-    print(f"test_dataset.label.shape:{test_dataset.label.shape}")
+    train_dataset, test_dataset = createMydataset2D_addNoise(Y_DIM, TEST_PERSON_NUM, FILELIST_IN_PATH, SMA_NUM, WAVELET_HEIGHT, WAVELET_WIDTH, transform, DISTANCE, FREQS_START, FREQS_END)
 
     torch.manual_seed(SEED)
     if torch.cuda.is_available():
@@ -588,10 +637,11 @@ def main(args):
         qy_x = model_yule_pool4_500hz.Qy_x(y_dim=Y_DIM).to(device)
         qz_xy = model_yule_pool4_500hz.Qz_xy(z_dim=Z_DIM, y_dim=Y_DIM).to(device)
     elif FS == 125 and POOL == 2:
+        print("model")
         px_z = model_pool2_125hz.Px_z(z_dim=Z_DIM).to(device)
-        pz_y = model_pool2_125hz.Pz_y(z_dim=Z_DIM, y_dim=Y_DIM).to(device)
-        qy_x = model_pool2_125hz.Qy_x(y_dim=Y_DIM).to(device)
-        qz_xy = model_pool2_125hz.Qz_xy(z_dim=Z_DIM, y_dim=Y_DIM).to(device)
+        pz_y = model_pool2_125hz.Pz_y(z_dim=Z_DIM, y_dim=Y_DIM+1).to(device)
+        qy_x = model_pool2_125hz.Qy_x(y_dim=Y_DIM+1).to(device)
+        qz_xy = model_pool2_125hz.Qz_xy(z_dim=Z_DIM, y_dim=Y_DIM+1).to(device)
     elif FS == 125 and POOL == 4:
         px_z = model_pool4_125hz.Px_z(z_dim=Z_DIM).to(device)
         pz_y = model_pool4_125hz.Pz_y(z_dim=Z_DIM, y_dim=Y_DIM).to(device)
@@ -775,6 +825,9 @@ def main(args):
     bounds = list(range(0,21))
     #norm = BoundaryNorm(bounds, cmap.N)
 
+    # ノイズ用に1クラス追加
+    K += 1
+    Y_DIM += 1
 
     ltrain_pred = []
     ztrain_pred = []
@@ -1056,7 +1109,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--distance", default='75cm')
-    parser.add_argument("--y_dim", type=int, default=23)
+    parser.add_argument("--y_dim", type=int, default=5)
     parser.add_argument("--z_dim", type=int, default=2)
     parser.add_argument("--epoch_num", type=int, default=50)
     parser.add_argument("--tau", type=float, default=0.5)#温度
@@ -1066,6 +1119,7 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--sma_num", type=int, default=5)
+    parser.add_argument("--test_person_num", type=int, default=1)
 
     parser.add_argument("--fs", type=int, default=125)
     parser.add_argument("--pool", type=int, default=2)
