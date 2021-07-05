@@ -308,4 +308,11 @@ def get_bool_blklist(length, blklist):
     if (blklist == None) | (blklist == []):
         return np.array([True]*length )
     return np.logical_not(np.any([np.arange(length) == i for i in blklist],axis=0))
-    
+
+# 2021.6.30追加　0-1正規化するだけ
+def min_max(x, axis=None):
+    """0-1の範囲に正規化"""
+    min = x.min(axis=axis, keepdims=True)
+    max = x.max(axis=axis, keepdims=True)
+    result = (x-min)/(max-min)
+    return result
